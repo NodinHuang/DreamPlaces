@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>說好要一起去的地方</title>
+    <style>
+        /* === 基礎設定 === */
+        html, body { margin: 0; padding: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #333; }
+        .hidden { display: none !important; }
+        button { cursor: pointer; }
+
+        /* === 【背景優化】全域滿版浮水印與毛玻璃 === */
+        .app-container { display: flex; flex-direction: column; height: 100vh; position: relative; background: #fffcfd; }
+        .app-container::before {
+            content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            /* 預設浪漫星光粉色漸層 SVG，可隨時替換成上方生成的圖片 URL */
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Ccircle cx='50' cy='50' r='30' fill='%23ffe6ea' opacity='0.6'/%3E%3Ccircle cx='350' cy='150' r='50' fill='%23f0e6ff' opacity='0.5'/%3E%3Ccircle cx='100' cy='300' r='40' fill='%23e6f2ff' opacity='0.6'/%3E%3Cpath d='M200 80 Q220 120 260 120 Q220 120 200 160 Q180 120 140 120 Q180 120 200 80Z' fill='%23ffd1dc' opacity='0.3'/%3E%3C/svg%3E");
+            background-size: cover; background-position: center; opacity: 0.8; z-index: 0; pointer-events: none;
+        }
+
+        /* 共用元件 */
+        .controls { width: 100%; box-sizing: border-box; font-size: 15px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 15px; background: rgba(255,255,255,0.9); }
+        .primary-btn { background: #673AB7; color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; font-size: 15px; font-weight: bold; transition: background 0.3s; }
+        .primary-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+        /* === 面板與清單樣式 (加入半透明毛玻璃) === */
+        .panel { background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 1; border-right: 1px solid rgba(255,255,255,0.5); }
+        #wish-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex-grow: 1; }
+        .county-header { background: linear-gradient(135deg, #673AB7, #9C27B0); color: white; padding: 8px 12px; font-size: 14px; border-radius: 6px; margin: 15px 0 8px 0; font-weight: bold; letter-spacing: 1px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .list-item { display: flex; align-items: center; padding: 12px 10px; border-bottom: 1px dashed rgba(0,0,0,0.1); background: rgba(255,255,255,0.6); border-radius: 8px; margin-bottom: 6px; }
+
+        /* === 日曆樣式 (加入半透明毛玻璃) === */
+        #calendar-view { background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 1; }
+        .calendar-cell { border: 1px solid rgba(0,0,0,0.08); padding: 6px; background: rgba(255,255,255,0.6); border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
+        .calendar-date-num { font-weight: bold; margin-bottom: 4px; font-size: 14px; color: #555; }
+        .calendar-tag { background: #E91E63; color: white; font-size: 11px; padding: 3px 5px; margin-bottom: 3px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .more-tag { background: rgba(0,0,0,0.05); color: #666; text-align: center; font-size: 11px; padding: 3px; margin-top: auto; border-radius: 4px; cursor: pointer; font-weight: bold; }
+
+        /* Modal */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; display: none; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; backdrop-filter: blur(3px); }
+        .modal-content { background: white; padding: 25px; border-radius: 16px; width: 100%; max-width: 350px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+
+        .main-content { flex-grow: 1; display: flex; position: relative; overflow: hidden; width: 100%; height: 100%; }
+
+        /* ===========================
+           💻 電腦版 (防裁切優化)
+           =========================== */
+        @media (min-width: 768px) {
+            .main-content { flex-direction: row; }
+            .panel { width: 420px; display: flex; flex-direction: column; padding: 25px; box-shadow: 2px 0 15px rgba(0,0,0,0.05); height: 100%; box-sizing: border-box; }
+            #map, #calendar-view { flex-grow: 1; height: 100%; }
+            .fab-container { display: none !important; } 
+            body[data-desktop-view="map"] #calendar-view { display: none !important; }
+            body[data-desktop-view="calendar"] #map { display: none !important; }
+            #desktop-toggle-btn { display: block; background: #FF9800; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; margin-bottom: 20px; font-size: 15px; box-shadow: 0 3px 6px rgba(0,0,0,0.1); }
+            
+            /* 電腦版日曆高度放大，防止裁切 */
+            #calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; grid-auto-rows: minmax(110px, 1fr); }
+        }
+
+        /* ===========================
+           📱 手機版 (字體壓縮與去背按鈕)
+           =========================== */
+        @media (max-width: 767px) {
+            #desktop-toggle-btn { display: none; } 
+            .panel, #map, #calendar-view { width: 100%; height: 100%; position: absolute; top: 0; left: 0; box-sizing: border-box; }
+            .panel { padding: 15px; display: flex; flex-direction: column; z-index: 5; }
+            
+            body[data-view="list"] #map, body[data-view="list"] #calendar-view { display: none !important; }
+            body[data-view="map"] .panel, body[data-view="map"] #calendar-view { display: none !important; }
+            body[data-view="calendar"] .panel, body[data-view="calendar"] #map { display: none !important; }
+
+            /* 【手機版日曆優化】強制高度，極限壓縮字體塞入4字元 */
+            #calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; grid-auto-rows: 85px; }
+            .calendar-cell { padding: 4px; }
+            .calendar-tag { font-size: 10px; padding: 2px 4px; margin-bottom: 2px; letter-spacing: -0.5px; line-height: 1.2; }
+            .more-tag { font-size: 10px; padding: 2px; }
+
+            /* 【手機版 FAB 優化】去背、校正圓弧座標 */
+            .fab-container { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 1000; }
+            .fab-menu { position: absolute; bottom: 10px; left: 50%; width: 0; height: 0; }
+            .fab-item {
+                position: absolute; width: 40px; height: 40px; 
+                background: transparent; /* 去除白底 */
+                box-shadow: none; /* 去除陰影 */
+                cursor: pointer; display: flex; justify-content: center; align-items: center; 
+                font-size: 32px; /* 放大 Emoji */
+                filter: drop-shadow(0 3px 5px rgba(0,0,0,0.3)); /* 替 Emoji 加上輪廓陰影 */
+                opacity: 0; pointer-events: none; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            }
+            /* 修正為完美的扇形弧度 */
+            .fab-menu.show .fab-item:nth-child(1) { opacity: 1; pointer-events: auto; transform: translate(-80px, -65px); }
+            .fab-menu.show .fab-item:nth-child(2) { opacity: 1; pointer-events: auto; transform: translate(-20px, -95px); }
+            .fab-menu.show .fab-item:nth-child(3) { opacity: 1; pointer-events: auto; transform: translate(40px, -65px); }
+
+            .fab-btn {
+                position: relative; z-index: 2; width: 60px; height: 60px; 
+                background: transparent; border: none; font-size: 45px; 
+                filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3)); cursor: pointer; 
+                display: flex; justify-content: center; align-items: center; transition: transform 0.3s;
+            }
+            .fab-btn.active { transform: rotate(45deg) scale(0.9); } 
+        }
+    </style>
+</head>
+<body data-view="list" data-desktop-view="map">
+
+    <div class="app-container">
+        <div class="main-content">
+            <div class="panel">
+                <h2 style="color:#673AB7; margin-top:5px; text-shadow: 1px 1px 0 #fff;">📍 新增願望地點</h2>
+                <button id="desktop-toggle-btn">切換至日曆模式 📅</button>
+                <input id="pac-input" class="controls" type="text" placeholder="輸入店家名稱或地址..." />
+                
+                <div id="info-card" class="hidden" style="background:rgba(255,255,255,0.9); padding:15px; border-radius:12px; margin-bottom:15px; border: 1px solid #E1BEE7;">
+                    <h3 id="place-name" style="margin-top:0; color:#4A148C;"></h3>
+                    <p id="place-address" style="color:#555; margin: 8px 0 15px 0; font-size:14px;"></p>
+                    <button id="add-to-list-btn" class="primary-btn" disabled>加入願望清單</button>
+                </div>
+                
+                <hr style="margin: 5px 0 15px 0; border: none; border-top: 1px dashed #ccc;">
+                <h3 style="margin-bottom: 10px; color:#444;">📝 我的願望清單</h3>
+                <ul id="wish-list"></ul>
+            </div>
+
+            <div id="map"></div>
+            
+            <div id="calendar-view" style="padding: 20px; overflow-y: auto;">
+                <h2 id="calendar-month-title" style="text-align: center; color: #4A148C; margin-bottom: 20px; font-size: 24px; text-shadow: 1px 1px 0 #fff;"></h2>
+                <div id="calendar-grid"></div>
+            </div>
+        </div>
+
+        <div class="fab-container">
+            <div id="fab-menu" class="fab-menu">
+                <div class="fab-item" data-target="list">📝</div>
+                <div class="fab-item" data-target="map">🗺️</div>
+                <div class="fab-item" data-target="calendar">📅</div>
+            </div>
+            <button id="fab-main-btn" class="fab-btn">💡</button>
+        </div>
+
+        <div id="edit-modal" class="modal-overlay">
+            <div class="modal-content">
+                <h3 id="modal-title" style="margin-top:0; color:#333;"></h3>
+                <p style="color:#666; font-size:14px; margin-bottom:8px;">修改完成日期：</p>
+                <input type="date" id="modal-date" class="controls" style="margin-bottom:20px;">
+                <div style="display:flex; justify-content:flex-end; gap:10px;">
+                    <button id="modal-cancel" style="padding:10px 15px; border:none; border-radius:6px; background:#eee; cursor:pointer; font-weight:bold;">取消</button>
+                    <button id="modal-save" style="padding:10px 15px; border:none; border-radius:6px; background:#E91E63; color:white; cursor:pointer; font-weight:bold;">儲存修改</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="day-details-modal" class="modal-overlay">
+            <div class="modal-content">
+                <h3 id="day-modal-title" style="margin-top:0; border-bottom: 2px solid #E91E63; padding-bottom: 10px; color:#E91E63;"></h3>
+                <div id="day-modal-list" style="display:flex; flex-direction:column; gap:10px; margin: 15px 0; max-height: 50vh; overflow-y:auto;"></div>
+                <button id="day-modal-close" class="primary-btn" style="background:#eee; color:#333;">關閉</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let map; let marker; let allMarkers = []; 
+        let wishList = JSON.parse(localStorage.getItem("myWishes")) || [];
+        let currentSelectedPlace = null; let currentEditId = null; 
+
+        // 【分類優化】擴增國際地區與台灣縣市
+        const twCounties = ["台北市", "新北市", "基隆市", "桃園市", "新竹縣", "新竹市", "苗栗縣", "台中市", "彰化縣", "南投縣", "雲林縣", "嘉義縣", "嘉義市", "台南市", "高雄市", "屏東縣", "宜蘭縣", "花蓮縣", "台東縣", "澎湖縣", "金門縣", "連江縣", "香港", "澳門"];
+
+        function initMap() {
+            map = new google.maps.Map(document.getElementById("map"), {
+                center: { lat: 23.6978, lng: 120.9605 }, zoom: 8, mapTypeControl: false, gestureHandling: "greedy", 
+            });
+            const searchBox = new google.maps.places.SearchBox(document.getElementById("pac-input"));
+            marker = new google.maps.Marker({ map: map });
+
+            searchBox.addListener("places_changed", () => {
+                const places = searchBox.getPlaces();
+                if (places.length === 0) return;
+                const place = places[0]; marker.setVisible(false);
+                if (!place.geometry || !place.geometry.location) return;
+                if (place.geometry.viewport) map.fitBounds(place.geometry.viewport); 
+                else { map.setCenter(place.geometry.location); map.setZoom(17); }
+                marker.setPosition(place.geometry.location); marker.setVisible(true);
+                
+                document.getElementById("info-card").classList.remove("hidden");
+                document.getElementById("place-name").textContent = place.name;
+                document.getElementById("place-address").textContent = place.formatted_address || "無詳細地址";
+                document.getElementById("add-to-list-btn").disabled = false;
+                
+                currentSelectedPlace = {
+                    id: Date.now(), name: place.name,
+                    address: place.formatted_address || "無詳細地址",
+                    lat: place.geometry.location.lat(), lng: place.geometry.location.lng(),
+                    status: "pending" 
+                };
+            });
+            renderWishList(); updateMapMarkers(); renderCalendar();
+        }
+
+        // 介面切換
+        document.getElementById("desktop-toggle-btn").addEventListener("click", (e) => {
+            if (document.body.getAttribute("data-desktop-view") === "map") {
+                document.body.setAttribute("data-desktop-view", "calendar"); e.target.textContent = "返回地圖模式 🗺️";
+            } else {
+                document.body.setAttribute("data-desktop-view", "map"); e.target.textContent = "切換至日曆模式 📅";
+            }
+            renderCalendar();
+        });
+
+        const fabMainBtn = document.getElementById("fab-main-btn");
+        const fabMenu = document.getElementById("fab-menu");
+        fabMainBtn.addEventListener("click", () => {
+            fabMenu.classList.toggle("show");
+            if (fabMenu.classList.contains("show")) { fabMainBtn.textContent = "✖"; fabMainBtn.classList.add("active"); } 
+            else { fabMainBtn.textContent = "💡"; fabMainBtn.classList.remove("active"); }
+        });
+
+        document.querySelectorAll(".fab-item").forEach(item => {
+            item.addEventListener("click", (e) => {
+                document.body.setAttribute("data-view", e.target.getAttribute("data-target"));
+                fabMenu.classList.remove("show"); fabMainBtn.textContent = "💡"; fabMainBtn.classList.remove("active");
+                if(e.target.getAttribute("data-target") === 'calendar') renderCalendar();
+            });
+        });
+
+        // Modal
+        function openEditModal(id, name, date) {
+            currentEditId = id; document.getElementById("modal-title").textContent = name;
+            
+            // 【日期防呆】確保丟進 input 的是 YYYY-MM-DD
+            let safeDate = date || "";
+            if(safeDate.includes('/')) safeDate = safeDate.replace(/\//g, '-');
+            if(safeDate.length > 10) safeDate = safeDate.substring(0, 10);
+            
+            document.getElementById("modal-date").value = safeDate;
+            document.getElementById("edit-modal").style.display = "flex";
+        }
+        document.getElementById("modal-cancel").addEventListener("click", () => document.getElementById("edit-modal").style.display = "none");
+        document.getElementById("modal-save").addEventListener("click", () => {
+            const newDate = document.getElementById("modal-date").value;
+            if(newDate && currentEditId) { updateCompletedDate(currentEditId, newDate); document.getElementById("edit-modal").style.display = "none"; }
+        });
+        document.getElementById("day-modal-close").addEventListener("click", () => document.getElementById("day-details-modal").style.display = "none");
+
+        // 資料操作
+        document.getElementById("add-to-list-btn").addEventListener("click", () => {
+            if (currentSelectedPlace) {
+                wishList.push(currentSelectedPlace); saveAndRender(); 
+                currentSelectedPlace = null; document.getElementById("add-to-list-btn").disabled = true;
+                document.getElementById("info-card").classList.add("hidden"); document.getElementById("pac-input").value = ""; 
+            }
+        });
+
+        function toggleStatus(id) {
+            const index = wishList.findIndex(item => item.id === id);
+            if (index > -1) {
+                if (wishList[index].status === "completed") {
+                    wishList[index].status = "pending"; wishList[index].completedAt = null; 
+                } else {
+                    wishList[index].status = "completed";
+                    // 強制生成正確的 YYYY-MM-DD
+                    const d = new Date();
+                    wishList[index].completedAt = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; 
+                }
+                saveAndRender();
+            }
+        }
+        function updateCompletedDate(id, newDateStr) {
+            const index = wishList.findIndex(item => item.id === id);
+            if (index > -1 && wishList[index].status === "completed") { wishList[index].completedAt = newDateStr; saveAndRender(); }
+        }
+        function deleteItemById(id) { if(confirm("確定要刪除嗎？")) { wishList = wishList.filter(item => item.id !== id); saveAndRender(); } }
+        function saveAndRender() { localStorage.setItem("myWishes", JSON.stringify(wishList)); renderWishList(); updateMapMarkers(); renderCalendar(); }
+
+        // 【圖示優化】平衡比例的拉炮與加粗驚嘆號
+        function updateMapMarkers() {
+            allMarkers.forEach(m => m.setMap(null)); allMarkers = [];
+            
+            // 加粗的純驚嘆號 (無外圈)
+            const svgExclamation = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23FF5722'%3E%3Cpath d='M9 2h6v12H9zm1 14h4v4h-4z'/%3E%3C/svg%3E";
+            // 慶祝拉炮
+            const svgPopper = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='50%25' y='50%25' font-size='28' text-anchor='middle' dominant-baseline='central'%3E🎉%3C/text%3E%3C/svg%3E";
+
+            wishList.forEach(item => {
+                const m = new google.maps.Marker({
+                    position: { lat: item.lat, lng: item.lng }, map: map, 
+                    // 兩者皆設定為 32x32，確保視覺比例平衡
+                    icon: { url: item.status === "completed" ? svgPopper : svgExclamation, scaledSize: new google.maps.Size(32, 32) }, 
+                    title: item.name
+                });
+                allMarkers.push(m);
+            });
+        }
+
+        // 【分類優化】智慧字串校正與外國擷取
+        function renderWishList() {
+            const listContainer = document.getElementById("wish-list"); listContainer.innerHTML = ""; 
+            
+            // 排序前，先將「臺」替換成「台」以便精準比對
+            wishList.sort((a, b) => {
+                let addrA = (a.address || "").replace(/臺/g, "台");
+                let addrB = (b.address || "").replace(/臺/g, "台");
+                return addrA.localeCompare(addrB, "zh-TW");
+            });
+
+            const groupedWishes = {};
+            wishList.forEach(item => {
+                let county = "其他地區";
+                let normAddr = (item.address || "").replace(/臺/g, "台");
+                
+                // 1. 台灣縣市與港澳比對
+                for (let c of twCounties) { if (normAddr.includes(c)) { county = c; break; } }
+                
+                // 2. 如果還是其他地區，嘗試擷取國名字首
+                if (county === "其他地區") {
+                    let foreignMatch = normAddr.match(/^(日本|韓國|美國|英國|法國|泰國|越南|中國|新加坡|馬來西亞)/);
+                    if(foreignMatch) county = foreignMatch[0];
+                }
+
+                if (!groupedWishes[county]) groupedWishes[county] = [];
+                groupedWishes[county].push(item);
+            });
+
+            Object.keys(groupedWishes).forEach(countyName => {
+                const header = document.createElement("div"); header.className = "county-header"; header.textContent = `📍 ${countyName}`;
+                listContainer.appendChild(header);
+
+                groupedWishes[countyName].forEach(item => {
+                    const li = document.createElement("li"); li.className = "list-item";
+                    const isChecked = item.status === "completed" ? "checked" : "";
+                    const textStyle = item.status === "completed" ? "text-decoration: line-through; color: #aaa;" : "color: #333; font-weight:600;";
+                    
+                    let datePickerHtml = "";
+                    if (item.status === "completed") {
+                        let safeDate = item.completedAt ? item.completedAt.replace(/\//g, '-').substring(0,10) : '';
+                        datePickerHtml = `
+                            <div style="margin-top: 8px; display:flex; align-items:center;">
+                                <span style="font-size:12px; color:#E91E63; margin-right:5px; font-weight:bold;">🎉 完成於：</span>
+                                <input type="date" class="date-edit" value="${safeDate}" style="border: 1px solid #ddd; border-radius: 4px; padding: 3px; font-size: 12px; color: #555; background: rgba(255,255,255,0.8);">
+                            </div>`;
+                    }
+
+                    // 將原地址中的「臺」替換回「台」並移除縣市名避免重複
+                    let displayAddress = (item.address || "").replace(/臺/g, "台");
+                    displayAddress = displayAddress.replace(countyName, '') || displayAddress;
+
+                    li.innerHTML = `
+                        <input type="checkbox" class="status-checkbox" style="width: 22px; height: 22px; margin-right: 15px; cursor: pointer; accent-color: #E91E63;" ${isChecked}>
+                        <div style="flex-grow: 1; ${textStyle} line-height: 1.4;">
+                            <strong style="font-size: 16px;">${item.name}</strong><br>
+                            <span style="font-size: 12px; color: #888;">${displayAddress}</span>
+                            ${datePickerHtml}
+                        </div>
+                        <button class="delete-btn" style="background: none; border: none; font-size: 20px; cursor: pointer; padding: 10px; opacity: 0.5;">🗑️</button>
+                    `;
+                    li.querySelector(".status-checkbox").addEventListener("change", () => toggleStatus(item.id));
+                    li.querySelector(".delete-btn").addEventListener("click", () => deleteItemById(item.id));
+                    if(item.status === "completed") li.querySelector(".date-edit").addEventListener("change", (e) => updateCompletedDate(item.id, e.target.value));
+                    listContainer.appendChild(li);
+                });
+            });
+        }
+
+        // 日曆渲染
+        function renderCalendar() {
+            const grid = document.getElementById("calendar-grid"); grid.innerHTML = ""; 
+            const today = new Date(); const year = today.getFullYear(); const month = today.getMonth(); 
+            document.getElementById("calendar-month-title").textContent = `${year} 年 ${month + 1} 月`;
+
+            const daysOfWeek = ['日', '一', '二', '三', '四', '五', '六'];
+            daysOfWeek.forEach(day => {
+                const headerCell = document.createElement("div"); headerCell.textContent = day;
+                headerCell.style.cssText = "text-align:center; font-weight:bold; padding:6px 0; background:rgba(233, 30, 99, 0.1); border-radius:6px; font-size:13px; color:#E91E63;";
+                grid.appendChild(headerCell);
+            });
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            for (let i = 0; i < firstDay; i++) { grid.appendChild(document.createElement("div")); }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const cell = document.createElement("div"); cell.className = "calendar-cell";
+                if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+                    cell.style.background = "rgba(255, 152, 0, 0.15)"; cell.style.border = "2px solid #FF9800";
+                }
+                cell.innerHTML = `<div class="calendar-date-num">${day}</div>`;
+
+                const dayItems = wishList.filter(item => {
+                    if (item.status === "completed" && item.completedAt) {
+                        let safeDate = item.completedAt.replace(/\//g, '-');
+                        const [itemYear, itemMonth, itemDay] = safeDate.split('-');
+                        return parseInt(itemYear) === year && parseInt(itemMonth) === month + 1 && parseInt(itemDay) === day;
+                    } return false;
+                });
+
+                dayItems.slice(0, 2).forEach(item => {
+                    const tag = document.createElement("div"); tag.className = "calendar-tag"; tag.textContent = `🎉 ${item.name}`;
+                    tag.addEventListener("click", () => openEditModal(item.id, item.name, item.completedAt));
+                    cell.appendChild(tag);
+                });
+
+                if (dayItems.length > 2) {
+                    const moreTag = document.createElement("div"); moreTag.className = "more-tag"; moreTag.textContent = `...還有 ${dayItems.length - 2} 個`;
+                    moreTag.addEventListener("click", (e) => {
+                        e.stopPropagation(); 
+                        document.getElementById("day-modal-title").textContent = `${year}/${month+1}/${day} 的足跡`;
+                        const listDiv = document.getElementById("day-modal-list"); listDiv.innerHTML = "";
+                        dayItems.forEach(di => {
+                            const diBtn = document.createElement("div");
+                            diBtn.style.cssText = "background:rgba(233, 30, 99, 0.05); padding:10px; border-radius:8px; border-left:4px solid #E91E63; cursor:pointer; display:flex; justify-content:space-between; align-items:center;";
+                            diBtn.innerHTML = `<div><strong>${di.name}</strong><br><span style="font-size:12px;color:#666;">${di.address}</span></div><span style="font-size:16px; color:#E91E63;">✎</span>`;
+                            diBtn.addEventListener("click", () => { document.getElementById("day-details-modal").style.display = "none"; openEditModal(di.id, di.name, di.completedAt); });
+                            listDiv.appendChild(diBtn);
+                        });
+                        document.getElementById("day-details-modal").style.display = "flex";
+                    });
+                    cell.appendChild(moreTag);
+                }
+                grid.appendChild(cell);
+            }
+        }
+    </script>
+    
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBlY6928gt5evta4H4KfvwfJFSYikJni94&libraries=places&callback=initMap"></script>
+</body>
+</html>
